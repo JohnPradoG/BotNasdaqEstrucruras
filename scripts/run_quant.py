@@ -22,7 +22,7 @@ Familias (73 variantes):
     k {1,5, 2,0} x mantener h {1,3} horas x {contra el movimiento, a favor del movimiento}
     x {ambas direcciones, solo compras}; señales entre 10:00 y 15:00 NY; sale como tarde a las 16:00   16
  Q3 estacionalidad
-    noche (compra 16:00 -> 9:30) y sesión (compra 9:31 -> 15:59), cada una compra y venta     4
+    noche (compra 15:55 -> 9:30) y sesión (compra 9:31 -> 15:59), cada una compra y venta     4
     hora del día: se eligen en DESARROLLO las horas NY con |t| >= 2 (y su signo); se prueban en
     validación como una sola estrategia                                                      1
     día de la semana: igual, con los 5 días                                                  1
@@ -89,7 +89,7 @@ class M1:
         ok = i < len(self.t)
         i = np.minimum(i, len(self.t) - 1)
         ok &= (self.t[i] - ts) <= np.timedelta64(tol_min, "m")
-        return np.where(ok, self.o[i], np.nan), np.where(ok, self.t[i], np.datetime64("NaT"))
+        return np.where(ok, self.o[i], np.nan), np.where(ok, self.t[i], np.datetime64("NaT", "ns"))
 
     def close_before(self, ts: np.ndarray, tol_min: int = 5):
         i = np.searchsorted(self.t, ts) - 1
@@ -330,10 +330,11 @@ def session_trades(m: M1, dates: pd.DatetimeIndex, t_in: str, t_out: str, d: int
 
 def q3_seasonality(m: M1, h: pd.DataFrame, d: pd.DataFrame, dates: pd.DatetimeIndex) -> list:
     v = []
-    # noche: compra a las 16:00 (apertura de la M1 de 16:00) y sale en la apertura de 9:30 del siguiente día hábil
+    # noche: compra a las 15:55 (apertura de esa M1; en 2021-24 el símbolo no cotiza de 16:00 a 18:30 NY) y sale en
+    # la apertura de 9:30 del siguiente día hábil
     nxt = pd.Series(dates[1:].append(pd.DatetimeIndex([dates[-1] + pd.Timedelta(days=1)])), index=dates)
     for d_ in (1, -1):
-        te = m.utc(dates, "16:00")
+        te = m.utc(dates, "15:55")
         tx = m.utc(pd.DatetimeIndex(nxt.values), "09:30")
         e, ter = m.open_at(te)
         x, _ = m.open_at(tx)
