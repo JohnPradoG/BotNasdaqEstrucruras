@@ -38,3 +38,13 @@
    permite stops de hasta ~27 puntos de índice; muchas señales se descartarían.
 4. Ticks reales (2026 en adelante) para comprobar la hipótesis intravela.
 5. Revisión humana del registro de ejecución de la demo (rechazos, deslizamiento real, reconciliaciones).
+
+## Actualización 2026-10-20 (búsqueda de estrategias)
+
+- Se probaron 265 variantes más (estructuras, ideas cuantitativas clásicas, machine learning y HMM). Ninguna pasa la
+  regla de selección. Detalle en `docs/busqueda_estrategias.md`.
+- Hasta 2023-06 el símbolo pausaba de 15:59 a 18:30 NY y el cierre forzado de 16:55 no actuaba en esos datos: algunas
+  operaciones del backtest original cruzaban la pausa (8,8 % en H4+H1+M15). Esto mejoraba un poco los resultados
+  antiguos; no cambia la decisión de NO OPERAR.
+- El swap de compra del CFD (−6,555 puntos por noche, triple el viernes) cuesta entre un 8 % y un 19 % al año:
+  mantener compras varios días no es viable con este producto.
