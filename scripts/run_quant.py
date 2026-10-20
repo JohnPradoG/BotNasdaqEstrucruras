@@ -204,7 +204,9 @@ def hourly_series(h: pd.DataFrame, pos: pd.Series) -> pd.DataFrame:
     cprev = h["close"].shift(1)
     gross = pp * (h["open"] - cprev) + p * (h["close"] - h["open"])
     cost = (RT / 2) * (p - pp).abs()
-    at_roll = h["ny_hour"] == 16
+    # la vela es la última del día de trading (cierre diario de 17:00 NY, o la pausa de 16:00-18:30 NY de 2021-23)
+    tday = (h.index.tz_localize("UTC").tz_convert(NY) + pd.Timedelta(hours=7)).tz_localize(None).normalize()
+    at_roll = pd.Series(tday != tday.to_series().shift(-1).to_numpy(), index=h.index)
     sw = SWAP * np.where((p > 0) & at_roll, np.where(h["roll_wd"] == 4, 3, 1), 0)
     net = gross - cost - sw
     out = pd.DataFrame({"detected_time": h.index, "r": (net / cprev * 1e4).to_numpy(),

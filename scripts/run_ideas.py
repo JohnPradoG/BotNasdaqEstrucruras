@@ -11,7 +11,7 @@ Ideas (familias):
                                x stop {0,5, 1,0 ATR más allá del nivel} x objetivo {1,5, 2, 3 R}        = 48
   F2 sesgo_D1         Señales A/B/C de siempre (entrada a mercado, stop = invalidación +-0,10 ATR) filtradas por
                       un sesgo diario ya cerrado: {media 50 días a favor, tendencia de estructura D1 a favor,
-                      solo compras}. Salida {2 R, fin del día (16:55 Nueva York) sin objetivo}.
+                      solo compras}. Salida {2 R, fin del día (15:57 Nueva York) sin objetivo}.
                       2 combos x 3 estrategias x 3 sesgos x 2 salidas                                       = 36
   F3 memoria_knn      Las mismas señales sin sesgo; se opera solo si los 50 casos pasados más parecidos de la
                       MISMA regla (ya cerrados, separados >= 30 min, con >= 100 casos previos) dan
@@ -474,6 +474,12 @@ def main() -> None:
     m1 = pd.read_parquet(ROOT / "data" / "processed" / "USTECm_M1.parquet")
     m1.index = m1.index.astype("datetime64[ns]")
     m = M1Arrays.from_frame(m1, spec.point, True, SPREAD_PTS / spec.point)
+    # Hasta 2023-06 el símbolo dejaba de cotizar a las 15:59 NY y volvía a las 18:30 NY, así que la ventana de
+    # cierre forzado de 16:55-18:00 no existía en los datos y las operaciones cruzaban la pausa. Para que "fin del
+    # día" signifique lo mismo en todos los años, el cierre forzado aquí es de 15:57 a 18:30 NY.
+    ny = m1.index.tz_localize("UTC").tz_convert("America/New_York")
+    mins = np.asarray(ny.hour * 60 + ny.minute)
+    m.flat_mask = (mins >= 15 * 60 + 57) & (mins < 18 * 60 + 30)
     m_nf = M1Arrays.from_frame(m1, spec.point, False, SPREAD_PTS / spec.point)
 
     d1 = daily_bars(m1)
