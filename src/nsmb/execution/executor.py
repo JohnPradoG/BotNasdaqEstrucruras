@@ -85,6 +85,15 @@ class PaperBroker:
         self.positions[self._ticket] = {**req, "ticket": self._ticket, "price": px}
         return {"retcode": "done", "order": self._ticket, "price": px}
 
+    def close_position(self, ticket: int, symbol, magic) -> dict:
+        if not self.connected:
+            return {"retcode": "connection", "comment": "sin conexión"}
+        p = self.positions.get(ticket)
+        if p is None or p["magic"] != magic:
+            return {"retcode": "reject", "comment": "posición no encontrada"}
+        self.positions.pop(ticket)
+        return {"retcode": "done", "order": ticket, "price": self.bid if p["direction"] > 0 else self.bid + self.spread}
+
     def close_all(self, symbol, magic):
         for k in [k for k, p in self.positions.items() if p["magic"] == magic]:
             self.positions.pop(k)
@@ -130,6 +139,31 @@ class MT5Broker:
                 m.TRADE_RETCODE_PRICE_CHANGED: "requote", m.TRADE_RETCODE_TIMEOUT: "timeout",
                 m.TRADE_RETCODE_CONNECTION: "connection"}.get(res.retcode, "reject")
         return {"retcode": code, "order": res.order, "price": res.price, "comment": res.comment, "mt5_retcode": res.retcode}
+
+
+    def close_position(self, ticket: int, symbol, magic) -> dict:
+        m = self.mt5
+        ps = m.positions_get(ticket=ticket)
+        if ps is None:
+            return {"retcode": "connection", "comment": str(m.last_error())}
+        if not ps or ps[0].magic != magic:
+            return {"retcode": "reject", "comment": "posición no encontrada"}
+        p = ps[0]
+        t = m.symbol_info_tick(symbol)
+        if t is None:
+            return {"retcode": "connection", "comment": str(m.last_error())}
+        buy = p.type == m.POSITION_TYPE_BUY
+        r = {"action": m.TRADE_ACTION_DEAL, "symbol": symbol, "volume": p.volume, "position": ticket,
+             "type": m.ORDER_TYPE_SELL if buy else m.ORDER_TYPE_BUY, "price": t.bid if buy else t.ask,
+             "deviation": self.dev, "magic": magic, "comment": "NSMB cierre", "type_time": m.ORDER_TIME_GTC,
+             "type_filling": m.ORDER_FILLING_IOC}
+        res = m.order_send(r)
+        if res is None:
+            return {"retcode": "connection", "comment": str(m.last_error())}
+        code = {m.TRADE_RETCODE_DONE: "done", m.TRADE_RETCODE_REQUOTE: "requote",
+                m.TRADE_RETCODE_PRICE_CHANGED: "requote", m.TRADE_RETCODE_TIMEOUT: "timeout",
+                m.TRADE_RETCODE_CONNECTION: "connection"}.get(res.retcode, "reject")
+        return {"retcode": code, "order": ticket, "price": res.price, "comment": res.comment, "mt5_retcode": res.retcode}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -221,6 +255,29 @@ class Executor:
         self.risk.on_execution_ok()
         self.risk.on_open()
         return ExecResult(True, "filled", "ok", resp.get("order"), resp.get("price"), attempts, resp)
+
+    # --- cierre ----------------------------------------------------------------------------
+    def close(self, client_id: str, ticket: int, symbol: str) -> ExecResult:
+        """Cierra una posición del bot (salida por regla o fin del día). Idempotente por client_id."""
+        cid = f"cierre-{client_id}"
+        if self.journal.has_request(cid):
+            return ExecResult(False, "duplicate", "cierre ya enviado")
+        if not self._log(cid, "request", {"ticket": ticket}):
+            return ExecResult(False, "duplicate", "cierre ya enviado")
+        attempts, resp = 0, {}
+        while attempts <= self.max_retries:
+            attempts += 1
+            resp = self.broker.close_position(ticket, symbol, self.magic)
+            if resp.get("retcode") in TRANSIENT and attempts <= self.max_retries:
+                time.sleep(self.retry_delay_s)
+                continue
+            break
+        self._log(cid, "response", {**resp, "attempts": attempts})
+        if resp.get("retcode") != "done":
+            self.risk.on_execution_error()
+            return ExecResult(False, "error", str(resp.get("comment")), ticket, attempts=attempts, raw=resp)
+        self.risk.open_positions = max(0, self.risk.open_positions - 1)
+        return ExecResult(True, "closed", "ok", ticket, resp.get("price"), attempts, resp)
 
     # --- reconciliación ------------------------------------------------------------------
     def reconcile(self, symbol: str, expected_tickets: set[int]) -> dict:

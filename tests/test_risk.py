@@ -29,7 +29,10 @@ def test_forbidden_settings_raise():
     with pytest.raises(ValueError):
         RiskLimits.from_cfg({"allow_martingale": True})
     with pytest.raises(ValueError):
-        RiskLimits.from_cfg({"max_open_positions": 3})
+        RiskLimits.from_cfg({"max_open_positions": 4})
+    with pytest.raises(ValueError):
+        RiskLimits.from_cfg({"max_open_positions": 3, "risk_per_trade_pct": 0.5})
+    assert RiskLimits.from_cfg({"max_open_positions": 3}).max_open_positions == 3
 
 
 def test_daily_loss_blocks_and_resets_next_day():

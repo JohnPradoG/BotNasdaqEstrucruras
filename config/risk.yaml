@@ -1,7 +1,7 @@
 # Límites de riesgo. El modelo NO puede modificar este archivo ni estos valores.
 risk_per_trade_pct: 0.25
 max_daily_loss_pct: 1.0           # sobre el equity al comienzo del día
-max_open_positions: 1
+max_open_positions: 3            # una por estrategia de apertura (orb15, orb5, noise); el código no admite más de 3
 max_total_drawdown_pct: 10.0      # al superarlo se bloquean nuevas entradas
 max_consecutive_losses: 6         # pausa hasta el día siguiente
 max_execution_errors: 3           # errores seguidos => bloqueo

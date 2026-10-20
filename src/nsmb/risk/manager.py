@@ -26,7 +26,8 @@ class RiskLimits:
         lim = cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
         if lim.allow_martingale or lim.allow_hedging:
             raise ValueError("Martingala y cobertura están prohibidas")
-        if lim.risk_per_trade_pct > 1.0 or lim.max_open_positions > 1:
+        # Hasta 3 posiciones: una por estrategia de la cartera de apertura (0,25 % cada una => 0,75 % abierto como máximo)
+        if lim.risk_per_trade_pct > 1.0 or lim.max_open_positions > 3 or lim.risk_per_trade_pct * lim.max_open_positions > 1.0:
             raise ValueError("Límites de riesgo fuera de lo autorizado")
         return lim
 
