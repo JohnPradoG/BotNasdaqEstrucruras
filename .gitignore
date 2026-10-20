@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/raw/*
+data/processed/*
+data/backtests/*
+!data/**/.gitkeep
+logs/*
+!logs/.gitkeep
+database/*.sqlite
+database/*.sqlite-*
+models/*.json
+!models/.gitkeep
+.pytest_cache/

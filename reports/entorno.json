@@ -1,0 +1,123 @@
+{
+  "generated_at": "2026-10-20T11:42:33.715709+00:00",
+  "os": "Windows 10 (10.0.26200)",
+  "python": "3.11.9",
+  "python_exe": "C:\\Users\\belly\\.venvs\\nsmb\\Scripts\\python.exe",
+  "git": "git version 2.55.0.windows.2",
+  "disk_free_gb": 115.4,
+  "mt5_terminal_installed": true,
+  "mt5_package": "5.0.6231",
+  "local_csv_m1": {
+    "path": "C:\\Users\\belly\\OneDrive\\Documentos\\ProyectosJohnNOBORRAR\\BotNasdaqCambioTendencia\\data\\m1\\M1_USTECm.csv",
+    "exists": true,
+    "size_mb": 113.5
+  },
+  "mt5_connection": {
+    "attempted": true,
+    "ok": true,
+    "terminal": {
+      "name": "MetaTrader 5",
+      "company": "MetaQuotes Ltd.",
+      "path": "C:\\Program Files\\MetaTrader 5",
+      "build": 6230,
+      "connected": true,
+      "trade_allowed": true,
+      "maxbars": 100000000,
+      "community_account": true
+    },
+    "account": {
+      "login": 198643523,
+      "server": "Exness-MT5Trial11",
+      "company": "Exness Technologies Ltd",
+      "currency": "USD",
+      "balance": 543.93,
+      "equity": 543.93,
+      "leverage": 2000,
+      "trade_mode": 0,
+      "trade_allowed": true,
+      "margin_mode": 2
+    },
+    "is_demo": true,
+    "nasdaq_symbols": [
+      {
+        "name": "LTCUSDm",
+        "description": "Litecoin vs US Dollar",
+        "path": "Standard\\Crypto\\LTCUSDm"
+      },
+      {
+        "name": "USTEC_x100m",
+        "description": "US Tech 100 Index",
+        "path": "Standard\\Idx_Enlarge\\USTEC_x100m"
+      },
+      {
+        "name": "USTECm",
+        "description": "US Tech 100 Index",
+        "path": "Standard\\Indices\\USTECm"
+      },
+      {
+        "name": "BRQSm",
+        "description": "Borqs Technologies Inc",
+        "path": "Standard\\Stocks\\BRQSm"
+      },
+      {
+        "name": "EDUm",
+        "description": "New Oriental Education & Technology Group Inc.",
+        "path": "Standard\\Stocks\\EDUm"
+      },
+      {
+        "name": "RLXm",
+        "description": "RLX Technology Inc",
+        "path": "Standard\\Stocks\\RLXm"
+      },
+      {
+        "name": "TIGRm",
+        "description": "Up Fintech Holding Ltd",
+        "path": "Standard\\Stocks\\TIGRm"
+      },
+      {
+        "name": "SPCXm",
+        "description": "Space Exploration Technologies Corp. (SpaceX) Inc.",
+        "path": "Standard\\Stocks\\SPCXm"
+      }
+    ],
+    "symbol_spec": {
+      "spec": {
+        "name": "USTECm",
+        "digits": 2,
+        "point": 0.01,
+        "tick_size": 0.01,
+        "tick_value": 0.01,
+        "contract_size": 1.0,
+        "volume_min": 0.05,
+        "volume_max": 500.0,
+        "volume_step": 0.01,
+        "stops_level": 0,
+        "swap_long_points": -655.5,
+        "swap_short_points": 0.0,
+        "swap_3day": 5
+      },
+      "spread": 112,
+      "spread_float": true,
+      "trade_mode": 4,
+      "trade_exemode": 2,
+      "filling_mode": 3,
+      "order_mode": 127,
+      "trade_freeze_level": 0,
+      "swap_mode": 1,
+      "currency_profit": "USD",
+      "session_deals": 0,
+      "time": 1792496566
+    },
+    "tick": {
+      "time": 1792496566,
+      "bid": 29395.59,
+      "ask": 29396.71,
+      "last": 0.0,
+      "volume": 0,
+      "time_msc": 1792496566659,
+      "flags": 6,
+      "volume_real": 0.0
+    },
+    "m1_last": "2026-10-20 11:42:00"
+  }
+}

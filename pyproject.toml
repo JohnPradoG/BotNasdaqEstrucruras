@@ -1,0 +1,23 @@
+[project]
+name = "nasdaq-structure-memory-bot"
+version = "0.1.0"
+description = "Bot de estructuras de mercado del Nasdaq con memoria histórica (investigación, backtest y demo; operativa real deshabilitada)"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "numpy>=2.0",
+  "pandas>=2.2",
+  "pyarrow>=15",
+  "pyyaml>=6",
+  "scipy>=1.12",
+  "matplotlib>=3.8",
+  "tzdata",
+]
+
+[project.optional-dependencies]
+mt5 = ["MetaTrader5>=5.0.45"]   # solo Windows; necesario para descargar datos y para el modo demo
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

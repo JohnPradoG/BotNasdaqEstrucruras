@@ -1,0 +1,87 @@
+# Configuración general. Las rutas relativas son relativas a la raíz del proyecto.
+project:
+  name: nasdaq_structure_memory_bot
+  seed: 20261020
+
+# Operativa: "backtest" | "paper" | "demo". "live" NO está soportado: el ejecutor lo rechaza siempre.
+execution:
+  mode: paper
+  live_trading_enabled: false      # interruptor explícito; el código además bloquea cuentas reales
+  magic: 26102001
+  comment_prefix: NSMB
+  max_retries: 2
+  retry_delay_s: 1.0
+  max_data_age_s: 180              # datos más viejos => no se abren posiciones
+
+symbol:
+  name: USTECm                     # Nasdaq 100 en Exness (cuenta Standard)
+  # Valores de respaldo si el terminal no está disponible (verificados con symbol_info el 2026-10-20)
+  fallback_spec:
+    digits: 2
+    point: 0.01
+    tick_size: 0.01
+    tick_value: 0.01               # USD por tick y por lote (contrato 1)
+    contract_size: 1.0
+    volume_min: 0.05
+    volume_max: 500.0
+    volume_step: 0.01
+    stops_level: 0
+    swap_long_points: -655.5
+    swap_short_points: 0.0
+    swap_3day: 5                   # viernes (swap_rollover3days=5, symbol_info 2026-10-20)
+
+data:
+  source: csv                      # "csv" (export MQL5) o "mt5" (paquete MetaTrader5)
+  csv_m1_path: ../BotNasdaqCambioTendencia/data/m1/M1_USTECm.csv
+  server_timezone: UTC             # hora del servidor de Exness = UTC (comprobado)
+  cache_dir: data/processed
+  timeframes: [M1, M5, M15, H1, H4]
+
+structure:
+  pivot_left: 3
+  pivot_right: 3
+  min_swing_atr: 0.5               # tamaño mínimo de una oscilación, en ATR
+  atr_period: 14
+  rsi_period: 14
+  break_buffer_atr: 0.0            # cuánto debe cerrar por encima/debajo del nivel
+  retest_tolerance_atr: 0.25
+  retest_max_bars: 12
+  sweep_max_bars: 1
+  fvg_min_atr: 0.3
+  impulse_range_atr: 1.8
+  impulse_body_ratio: 0.6
+  double_tolerance_atr: 0.35
+  double_min_bars: 6
+
+backtest:
+  entry_timeframes: [M15, M5]
+  combos:                          # (contexto, intermedia, entrada)
+    - [H4, H1, M15]
+    - [H1, M15, M5]
+    - [M15, M5, M1]
+  slippage_points: 50              # 0,5 puntos de índice por lado
+  # Spread usado como COSTE en la simulación. 112 points = 1,12 puntos de índice (spread actual de Exness,
+  # pedido por John el 2026-10-20). null = spread histórico de cada vela (más alto en 2021-2024: 4-5 puntos).
+  # El spread histórico se sigue informando como prueba de sensibilidad.
+  cost_spread_points: 112
+  stop_buffer_atr: 0.10
+  target_r: 2.0
+  max_hold_bars: 48
+  flat_before_rollover: true       # cerrar antes de 21:00 UTC (evita swap y la pausa diaria)
+  conservative_intrabar: true      # si stop y objetivo en el mismo M1 => stop
+  initial_equity: 10000.0
+
+split:                             # periodos cronológicos (se adaptan a la historia disponible)
+  development: ["2021-11-01", "2023-12-31"]
+  validation:  ["2024-01-01", "2024-12-31"]
+  holdout:     ["2025-01-01", "2026-12-31"]   # no se usa para elegir parámetros
+
+memory:
+  db_path: database/memory.sqlite
+  horizons_bars: [12, 24, 48]
+  targets_r: [1.0, 1.5, 2.0]
+  similarity:
+    k: 50
+    min_effective_n: 30
+    min_separation_bars: 6        # vecinos más cercanos en el tiempo cuentan como uno
+    min_expectancy_lcb_r: 0.0     # cota inferior (90 %) de la expectativa neta en R
