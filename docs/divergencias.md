@@ -68,3 +68,22 @@ movimiento ya pasó. El bot cuenta todas, también las que fallan, y solo con la
   giro o una ruptura de línea), se puede programar tal cual y medirla igual.
 - Lo más útil sería que John apunte en la demo, en el momento, cada divergencia que operaría y por qué. Así se mide
   su criterio real, sin memoria selectiva.
+
+## Actualización: ¿y si se opera 1:1, 1:1,5, 1:2 o 1:3? (`scripts/run_rr.py`, `reports/rr.json`)
+
+John propuso elegir la relación riesgo/beneficio con el backtest. Se probaron las cuatro en cada temporalidad, con el
+stop en el pivote o a 1 ATR: 80 variantes de divergencias, más la ruptura de apertura como referencia.
+**Ninguna pasa el examen.** Al alargar el objetivo, el acierto baja casi en la misma proporción, así que la
+expectativa antes de costes sigue cerca de 0. Ejemplo, M15 divergencia oculta con stop en el pivote, 2021-23:
+
+| Relación | Acierto necesario sin costes | Acierto real | Bruto | Neto |
+|---|---|---|---|---|
+| 1:1 | 50 % | 45 % | +0,03 R | −0,08 R |
+| 1:1,5 | 40 % | 35 % | +0,02 R | −0,09 R |
+| 1:2 | 33 % | 28 % | +0,03 R | −0,08 R |
+| 1:3 | 25 % | 18 % | +0,02 R | −0,10 R |
+
+(El acierto real queda por debajo del necesario, pero el bruto no es tan malo porque algunas operaciones cierran por
+tiempo, ni en el objetivo ni en el stop.) En todas las temporalidades, el bruto de las divergencias está entre −0,15 y
++0,20 R, sin repetirse de un periodo a otro, y el neto es negativo en casi todas. La única familia que se mantiene
+positiva con cualquier relación es la ruptura del rango de apertura de NY: +0,05 a +0,19 R en los tres periodos.
