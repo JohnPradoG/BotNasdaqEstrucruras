@@ -111,7 +111,10 @@ resultados antiguos. Corregirlo no cambia la conclusión de NO OPERAR. En los sc
 3. **Ser realista con el tiempo:** con +0,15 R por operación y la variabilidad medida (1,3 R), hacen falta unas
    300 operaciones para confirmarlo (t ≥ 2). Son unas 10 al mes, así que serían unos 2,5 años de demo. Si en 100
    operaciones va por debajo de 0 R, se descarta.
-4. Si John quiere seguir buscando, lo que más puede cambiar el resultado no es otro modelo, sino **otros datos**:
+4. **Tamaño de la cuenta:** el stop de esta regla es grande (mediana de 130 puntos en 2025-26). Con el lote mínimo
+   de 0,05, cada operación arriesga unos 6,5 USD, el 1,2 % de los 543,93 USD de la demo. Para respetar el 0,25 % por
+   operación haría falta una cuenta de unos 2.600 USD. La demo puede registrar las señales igualmente.
+5. Si John quiere seguir buscando, lo que más puede cambiar el resultado no es otro modelo, sino **otros datos**:
    ticks reales (para simular bien las órdenes limitadas), otros índices (S&P 500, Dow) para comprobar si la
    ruptura de apertura se repite, y un bróker o producto con menos swap si se quiere mantener posiciones.
 
