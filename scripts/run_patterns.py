@@ -257,7 +257,7 @@ def simulate_signals(sig: pd.DataFrame, df: pd.DataFrame, m: M1Arrays, tf_min: i
         if res is None:
             continue
         swap = I.nights_swap(pd.Timestamp(m.time[i]), pd.Timestamp(m.time[res[2]])) if d > 0 else 0.0
-        r = I.row(ts, d, res, i, m, swap=swap)
+        r = I.row(ts, d, res, i, m, {"figura": x.figura}, swap=swap)
         r["cost_r"] = (I.SPREAD_PTS + 2 * I.SLIP + swap) / res[1]
         r["obj_r"] = (tgt - px) * d / risk
         r["motivo"] = res[3]
@@ -293,8 +293,6 @@ def main() -> None:
         print(tf, len(df), "velas,", len(sig), "rupturas", sig["figura"].value_counts().to_dict() if len(sig) else {}, flush=True)
         for exit_kind in ("medido", "2R"):
             s = simulate_signals(sig, df, m, tfm, exit_kind)
-            s["figura"] = sig.set_index(pd.to_datetime(df["close_time"].to_numpy()[sig["t"]]))["figura"].reindex(
-                s["detected_time"]).to_numpy() if len(s) else []
             s = I.attach_bias(s, bias) if len(s) else s
             for fig in PATTERNS:
                 x = s[s["figura"] == fig] if len(s) else s
