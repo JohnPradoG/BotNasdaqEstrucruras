@@ -24,6 +24,7 @@ Uso: python scripts/run_web.py
 """
 from __future__ import annotations
 
+import itertools
 import json
 import sys
 from datetime import datetime, timezone
@@ -60,7 +61,8 @@ def fill(m: M1Arrays, pos: int, d: int, opening: bool) -> float:
     return m.open[pos] + m.spread[pos] + I.SLIP if buy else m.open[pos] - I.SLIP
 
 
-def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
+def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame, mult: float = 1.0, steps=(30, 15),
+             stops=("banda", "banda_vwap"), dirs=("ambas", "media50")) -> list[dict]:
     days = {k: g for k, g in rth.groupby("date")}
     dates = sorted(days)
     # movimiento absoluto desde la apertura, por minuto del día
@@ -76,10 +78,10 @@ def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
     t0 = pd.DataFrame({"date": good, "detected_time": [days[x].index[0] for x in good]})
     sb_day = I.attach_bias(t0, bias).set_index("date")["sma_bias"].fillna(0).to_dict()
     out = []
-    for step in (30, 15):
+    for step in steps:
         checks = list(range(600, 931, step))
-        for stop_kind in ("banda", "banda_vwap"):
-            for dir_f in ("ambas", "media50"):
+        for stop_kind in stops:
+            for dir_f in dirs:
                 rows = []
                 for j in range(14, len(good)):
                     dt, prev = good[j], good[j - 1]
@@ -106,7 +108,7 @@ def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
                         k = c - 1  # vela que cierra a la hora c
                         if k not in g.index or c not in hist.index or c not in g.index:
                             continue
-                        sig = hist.loc[c]
+                        sig = hist.loc[c] * mult
                         U, L = up_ref * (1 + sig), lo_ref * (1 - sig)
                         px_c = g.at[k, "close"]
                         if pos > 0:
@@ -119,14 +121,14 @@ def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
                                 close_pos(c)
                         if pos == 0:
                             d = 1 if px_c > U else (-1 if px_c < L else 0)
-                            if d and (dir_f == "ambas" or d * sb > 0):
+                            if d and (dir_f == "ambas" or (dir_f == "compras" and d > 0) or (dir_f == "media50" and d * sb > 0)):
                                 p = int(g.at[c, "pos"])
                                 entry_px, entry_pos, pos = fill(m, p, d, True), p, d
                                 unit = (U - L) / 2
                                 t_sig = pd.Timestamp(m.time[p])
                     if pos != 0:
                         close_pos(957 if 957 in g.index else int(g.index[-1]))
-                out.append({"clave": f"W1|noise|cada{step}m|stop_{stop_kind}|{dir_f}", "df": pd.DataFrame(rows)})
+                out.append({"clave": f"W1|noise|x{mult}|cada{step}m|stop_{stop_kind}|{dir_f}" if mult != 1.0 else f"W1|noise|cada{step}m|stop_{stop_kind}|{dir_f}", "df": pd.DataFrame(rows)})
     return out
 
 
@@ -165,7 +167,8 @@ def w2_intraday_mom(rth: pd.DataFrame, m: M1Arrays) -> list[dict]:
     return out
 
 
-def w3_orb5(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
+def w3_orb5(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame, targets=(10,), stops=("extremo",),
+            dirs=("ambas", "media50")) -> list[dict]:
     out = []
     first = rth[rth["mins"] < 575].groupby("date").agg(o=("open", "first"), h=("high", "max"), l=("low", "min"),
                                                        c=("close", "last"), n=("open", "size"))
@@ -174,7 +177,7 @@ def w3_orb5(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
     first = first.join(pos935.rename("p"), how="inner")
     first["detected_time"] = [pd.Timestamp(m.time[int(p)]) for p in first["p"]]
     first = I.attach_bias(first.reset_index(), bias)
-    for dir_f in ("ambas", "media50"):
+    for tg, sk, dir_f in itertools.product(targets, stops, dirs):
         rows = []
         for x in first.itertuples(index=False):
             if abs(x.c - x.o) < 0.05 * (x.h - x.l) or x.h <= x.l:
@@ -184,17 +187,19 @@ def w3_orb5(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame) -> list[dict]:
                 continue
             i = int(x.p)
             px = fill(m, i, d, True)
-            stop = x.l if d > 0 else x.h + I.SPREAD_PTS
+            stop = (x.l if d > 0 else x.h + I.SPREAD_PTS) if sk == "extremo" else (
+                (x.h + x.l) / 2 + (0 if d > 0 else I.SPREAD_PTS))
             risk = (px - stop) * d
             if risk <= 0:
                 continue
-            res = I.trade(m, i, d, px, stop, px + d * 10 * risk, I.end_index(m, i, 24 * 60), False)
+            res = I.trade(m, i, d, px, stop, None if tg is None else px + d * tg * risk, I.end_index(m, i, 24 * 60), False)
             if res is None:
                 continue
             r = I.row(x.detected_time, d, res, i, m)
             r["cost_r"] = COST / res[1]
             rows.append(r)
-        out.append({"clave": f"W3|orb5|{dir_f}", "df": pd.DataFrame(rows)})
+        key = f"W3|orb5|{dir_f}" if (tg, sk) == (10, "extremo") else f"W3|orb5|obj_{tg or 'fin_dia'}|stop_{sk}|{dir_f}"
+        out.append({"clave": key, "df": pd.DataFrame(rows)})
     return out
 
 
