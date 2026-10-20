@@ -13,8 +13,9 @@ Divergencias (RSI 14 de la misma temporalidad, pivotes fractales 3-3: se conocen
 Objetivos de John (en puntos del índice; con USTECm 1 punto = 1 USD por lote, así que con 1 lote son esos dólares):
   M1 15 · M5 20 · M15 40 · H1 80 · H4 160 puntos. Variante: objetivo de 2 ATR de la temporalidad.
 Stop: {pivote (extremo del segundo pivote +- 0,1 ATR), simétrico (a la misma distancia que el objetivo)}.
-Contexto: {todas, solo a favor de la media de 50 días}.
-Rejilla: 5 TF x {normal, oculta} x 2 objetivos x 2 stops x 2 contextos                                         = 80
+Contexto: {todas, solo a favor de la media de 50 días, solo con RSI en zona extrema (añadido a petición de John
+antes de ver resultados: compras si el RSI de alguno de los dos pivotes estaba bajo 30, ventas si estaba sobre 70)}.
+Rejilla: 5 TF x {normal, oculta} x 2 objetivos x 2 stops x 3 contextos                                        = 120
 Máximo 60 velas; sin cierre diario forzado; compras con swap. Coste: spread 1,12 + 0,5 por lado.
 
 Diagnóstico sin stop ni costes (no se usa para elegir): movimiento a favor tras 5, 20 y 60 velas, en ATR, y
@@ -81,7 +82,9 @@ def detect(df: pd.DataFrame) -> pd.DataFrame:
             elif p.price < prev.price and r2 > r1:
                 typ, d = "oculta", -1
         if typ:
-            out.append({"t": p.confirm_idx, "tipo": typ, "direction": d, "pivot": p.price, "atr": a[p.confirm_idx]})
+            ext = (min(r1, r2) < 30) if d > 0 else (max(r1, r2) > 70)
+            out.append({"t": p.confirm_idx, "tipo": typ, "direction": d, "pivot": p.price, "atr": a[p.confirm_idx],
+                        "rsi_extremo": bool(ext)})
     return pd.DataFrame(out)
 
 
@@ -146,7 +149,7 @@ def simulate(sig, df, m, tf, target_kind, stop_kind):
         if res is None:
             continue
         swap = I.nights_swap(pd.Timestamp(m.time[i]), pd.Timestamp(m.time[res[2]])) if d > 0 else 0.0
-        r = I.row(ts, d, res, i, m, {"tipo": x.tipo}, swap=swap)
+        r = I.row(ts, d, res, i, m, {"tipo": x.tipo, "rsi_extremo": x.rsi_extremo}, swap=swap)
         r["cost_r"] = (I.SPREAD_PTS + 2 * I.SLIP + swap) / res[1]
         r["pts"] = (res[0] - swap)
         rows.append(r)
@@ -172,7 +175,8 @@ def main() -> None:
         print(tf, len(df), "velas,", len(sig), "divergencias", sig["tipo"].value_counts().to_dict(), flush=True)
         for typ in ("normal", "oculta"):
             s0 = sig[sig["tipo"] == typ]
-            diag[f"{tf}|{typ}"] = {"todo": reaction(s0, df)}
+            diag[f"{tf}|{typ}"] = {"todo": reaction(s0, df),
+                                   "solo_rsi_extremo": reaction(s0[s0["rsi_extremo"]], df)}
             for p, (a_, b_) in I.PERIODS.items():
                 tt = pd.to_datetime(df["close_time"].to_numpy()[s0["t"]]) if len(s0) else pd.DatetimeIndex([])
                 mask = (tt >= pd.Timestamp(a_)) & (tt < pd.Timestamp(b_) + pd.Timedelta(days=1))
@@ -183,8 +187,9 @@ def main() -> None:
                 s = I.attach_bias(s, bias) if len(s) else s
                 for typ in ("normal", "oculta"):
                     x = s[s["tipo"] == typ]
-                    for ctx in ("todas", "media50"):
-                        y = x if ctx == "todas" else x[x["direction"] * x["sma_bias"] > 0]
+                    for ctx in ("todas", "media50", "rsi_extremo"):
+                        y = x if ctx == "todas" else (x[x["direction"] * x["sma_bias"] > 0] if ctx == "media50"
+                                                      else x[x["rsi_extremo"].astype(bool)])
                         res = I.by_period(y) if len(y) else {p: {"n": 0} for p in I.PERIODS}
                         r = {"clave": f"{tf}|{typ}|obj_{tk}|stop_{sk}|{ctx}", "tf": tf, "tipo": typ, "objetivo": tk,
                              "stop": sk, "contexto": ctx}
