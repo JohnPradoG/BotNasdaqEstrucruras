@@ -62,7 +62,8 @@ def fill(m: M1Arrays, pos: int, d: int, opening: bool) -> float:
 
 
 def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame, mult: float = 1.0, steps=(30, 15),
-             stops=("banda", "banda_vwap"), dirs=("ambas", "media50")) -> list[dict]:
+             stops=("banda", "banda_vwap"), dirs=("ambas", "media50"), hard_stop: float | None = None) -> list[dict]:
+    """hard_stop: stop de protección en el bróker a hard_stop x media banda desde la entrada (None = sin él)."""
     days = {k: g for k, g in rth.groupby("date")}
     dates = sorted(days)
     # movimiento absoluto desde la apertura, por minuto del día
@@ -104,11 +105,30 @@ def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame, mult: float = 1
                                      "exit_time": pd.Timestamp(m.time[p])})
                         pos = 0
 
+                    def hit_hard(p_to):
+                        """Si el stop de protección se tocó entre la entrada y la vela p_to (excluida), cierra ahí."""
+                        nonlocal pos
+                        if hard_stop is None or pos == 0 or p_to <= entry_pos:
+                            return
+                        stp = entry_px - pos * hard_stop * unit
+                        sl = slice(entry_pos, p_to)
+                        hit = m.low[sl] <= stp if pos > 0 else m.high[sl] + m.spread[sl] >= stp
+                        if hit.any():
+                            k0 = entry_pos + int(np.argmax(hit))
+                            px = (min(m.open[k0], stp) - I.SLIP) if pos > 0 else (max(m.open[k0] + m.spread[k0], stp) + I.SLIP)
+                            if k0 == entry_pos:
+                                px = stp - I.SLIP * pos
+                            rows.append({"detected_time": t_sig, "direction": pos, "r": ((px - entry_px) * pos) / unit,
+                                         "cost_r": COST / unit, "entry_time": pd.Timestamp(m.time[entry_pos]),
+                                         "exit_time": pd.Timestamp(m.time[k0])})
+                            pos = 0
+
                     for c in checks:
                         k = c - 1  # vela que cierra a la hora c
                         if k not in g.index or c not in hist.index or c not in g.index:
                             continue
                         sig = hist.loc[c] * mult
+                        hit_hard(int(g.at[c, "pos"]))
                         U, L = up_ref * (1 + sig), lo_ref * (1 - sig)
                         px_c = g.at[k, "close"]
                         if pos > 0:
@@ -126,9 +146,10 @@ def w1_noise(rth: pd.DataFrame, m: M1Arrays, bias: pd.DataFrame, mult: float = 1
                                 entry_px, entry_pos, pos = fill(m, p, d, True), p, d
                                 unit = (U - L) / 2
                                 t_sig = pd.Timestamp(m.time[p])
+                    hit_hard(int(g["pos"].iloc[-1]))
                     if pos != 0:
                         close_pos(957 if 957 in g.index else int(g.index[-1]))
-                out.append({"clave": f"W1|noise|x{mult}|cada{step}m|stop_{stop_kind}|{dir_f}" if mult != 1.0 else f"W1|noise|cada{step}m|stop_{stop_kind}|{dir_f}", "df": pd.DataFrame(rows)})
+                out.append({"clave": (f"hard{hard_stop}|" if hard_stop else "") + (f"W1|noise|x{mult}|cada{step}m|stop_{stop_kind}|{dir_f}" if mult != 1.0 else f"W1|noise|cada{step}m|stop_{stop_kind}|{dir_f}"), "df": pd.DataFrame(rows)})
     return out
 
 
