@@ -57,7 +57,7 @@ John pidió meter la de H1 al bot. Entró la variante **EMA 20/50 en H1, stop 1,
 - Arranque: `python scripts/run_demo_ema.py` (observa, no envía órdenes). `--allow-orders` solo opera en cuenta DEMO
   (si no es demo, el bot no arranca). Número mágico propio (magic + 2), registro `logs/ema_h1_AAAAMMDD.jsonl`,
   para detenerlo: Ctrl+C o crear `logs/STOP_EMA`. Puede ir a la vez que la cartera de apertura (proceso aparte).
-- Riesgo: 0,25 % por operación. Con lote mínimo 0,05 y stop medio de unos 1,5 ATR H1 (~60-100 puntos), arriesgar
-  0,25 % pide unos 1.200-2.000 USD; con menos, el bot no opera ("lote_minimo_supera_riesgo").
+- Riesgo: 0,25 % por operación. Con lote mínimo 0,05 y stop de 1,5 ATR H1 (mediana 115 puntos en 2025-26; la mitad entre 80 y 157), arriesgar
+  0,25 % pide unos 2.300 USD (1.600-3.100 según el día); con menos, el bot no opera ("lote_minimo_supera_riesgo").
 
 **No está activada.** Como no pasó la prueba estadística, lo recomendado es dejarla en observación unos meses.
