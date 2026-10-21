@@ -32,7 +32,7 @@ Regla: elegir **solo con 2021-23** y comprobar **2024-26 sin tocar**. Aprobada s
 ## Qué significa
 
 Es el ejemplo más claro de sobreajuste de todo el proyecto: la combinación que mejor salió en 2021-23 (t 2,02, casi
-"significativa") es la que **más pierde** después (−0,33 R por operación; con 1 % por operación, unos −98 % de R
+"significativa") es la que **más pierde** después (−0,33 R por operación: unos −97 R
 acumulados en 297 operaciones). Elegir la mejor de 144 combinaciones casi siempre da una que encajó con el pasado.
 
 **El Smart Money, tal como se opera normalmente, no tiene ventaja en Nasdaq con estos datos y costes. No entra al bot.**
