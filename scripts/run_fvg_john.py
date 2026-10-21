@@ -48,18 +48,53 @@ def mt5_atr(df: pd.DataFrame, n=14) -> pd.Series:
     return tr.rolling(n).mean()
 
 
-def run(m1: pd.DataFrame, m: M1Arrays) -> pd.DataFrame:
+def trade_pbe(m: M1Arrays, i0: int, d: int, px: float, stop: float, rr: float, at_r=1.0, frac=0.5, lock_r=0.1):
+    """Parcial + break-even del EA: al llegar a +at_r R cierra `frac` y sube el stop a +lock_r R.
+    Regla conservadora dentro de la vela: primero el stop. Devuelve (pnl_precio, riesgo, i_salida, motivo)."""
+    risk = (px - stop) * d
+    i_end = I.end_index(m, i0, 60 * 24 * 60)
+    first = I.trade(m, i0, d, px, stop, px + d * at_r * risk, i_end, False, use_flat=False)
+    if first is None or first[3] != "objetivo" or first[2] + 1 >= i_end:
+        return first
+    j = first[2] + 1                    # la otra mitad sigue desde la vela siguiente
+    be, tgt = px + d * lock_r * risk, px + d * rr * risk
+    o, h, l, c, sp = m.open[j:i_end], m.high[j:i_end], m.low[j:i_end], m.close[j:i_end], m.spread[j:i_end]
+    hs = (l <= be) if d > 0 else (h + sp >= be)
+    ht = (h >= tgt) if d > 0 else (l + sp <= tgt)
+    L = len(o)
+    i_s = int(np.argmax(hs)) if hs.any() else L
+    i_t = int(np.argmax(ht)) if ht.any() else L
+    if i_s == L and i_t == L:
+        k, ex = L - 1, (c[L - 1] if d > 0 else c[L - 1] + sp[L - 1])
+    elif i_s <= i_t:
+        k = i_s
+        ex = min(o[k], be) if d > 0 else max(o[k] + sp[k], be)
+    else:
+        k, ex = i_t, tgt
+    ex = ex - I.SLIP if d > 0 else ex + I.SLIP
+    pnl = frac * first[0] + (1 - frac) * (ex - px) * d
+    return pnl, risk, j + k, "parcial"
+
+
+def frames(m1: pd.DataFrame):
     h1 = resample(m1, "H1")
     h1 = h1[h1["complete"]].copy()
     h1["atr"] = mt5_atr(h1)
-    h1["ema"] = h1["close"].ewm(span=P["ema"], adjust=False).mean()
     m15 = resample(m1, "M15")
-    m15 = m15[m15["complete"]]
+    return h1, m15[m15["complete"]]
+
+
+def run(m1: pd.DataFrame, m: M1Arrays, p: dict | None = None, rej_type: int = 1, pbe: bool = False, fr=None,
+        dirs=(1, -1)) -> pd.DataFrame:
+    P = {**globals()["P"], **(p or {})}
+    h1, m15 = fr if fr is not None else frames(m1)
+    h1 = h1.copy()
+    h1["ema"] = h1["close"].ewm(span=P["ema"], adjust=False).mean()
     H_t = h1.index.to_numpy()                   # apertura de cada H1
     Hh, Hl, Hc = h1["high"].to_numpy(), h1["low"].to_numpy(), h1["close"].to_numpy()
     Ha, He = h1["atr"].to_numpy(), h1["ema"].to_numpy()
     Q_t = m15.index.to_numpy()
-    Qh, Ql, Qc = m15["high"].to_numpy(), m15["low"].to_numpy(), m15["close"].to_numpy()
+    Qo, Qh, Ql, Qc = m15["open"].to_numpy(), m15["high"].to_numpy(), m15["low"].to_numpy(), m15["close"].to_numpy()
     one_h = np.timedelta64(60, "m")
 
     zone = {1: None, -1: None}                  # [alto, bajo, edad, activa]
@@ -111,7 +146,14 @@ def run(m1: pd.DataFrame, m: M1Arrays) -> pd.DataFrame:
                 continue
             hi, lo = z[0], z[1]
             touched = Qh[p] >= lo and Ql[p] <= hi
-            rej = touched and ((Qc[p] > hi) if d > 0 else (Qc[p] < lo))
+            if rej_type == 0:
+                rej = touched
+            elif rej_type == 1:
+                rej = touched and ((Qc[p] > hi) if d > 0 else (Qc[p] < lo))
+            else:
+                rng = Qh[p] - Ql[p]
+                wick = (min(Qo[p], Qc[p]) - Ql[p]) if d > 0 else (Qh[p] - max(Qo[p], Qc[p]))
+                rej = touched and rng > 0 and wick / rng * 100 >= 50
             if not rej:
                 continue
             if trend(k) != d:
@@ -127,8 +169,12 @@ def run(m1: pd.DataFrame, m: M1Arrays) -> pd.DataFrame:
             risk = (px - stop) * d
             if risk <= 0:
                 break
-            res = I.trade(m, i0, d, px, stop, px + d * P["rr"] * risk, I.end_index(m, i0, 60 * 24 * 60), False,
-                          use_flat=False)
+            if d not in dirs:
+                z[3] = False
+                break
+            res = (trade_pbe(m, i0, d, px, stop, P["rr"]) if pbe else
+                   I.trade(m, i0, d, px, stop, px + d * P["rr"] * risk, I.end_index(m, i0, 60 * 24 * 60), False,
+                           use_flat=False))
             if res is None:
                 break
             swap = I.nights_swap(pd.Timestamp(m.time[i0]), pd.Timestamp(m.time[res[2]])) if d > 0 else 0.0
