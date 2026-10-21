@@ -139,6 +139,10 @@ def run(m1: pd.DataFrame, m: M1Arrays, p: dict | None = None, rej_type: int = 1,
             last_h_scanned = k
         if T < busy_until or T < pause_until:
             continue
+        if P.get("sesion_ny"):                 # solo entradas durante la sesión de contado de NY (9:30-16:00)
+            tny = pd.Timestamp(T).tz_localize("UTC").tz_convert(I.NY)
+            if not (570 <= tny.hour * 60 + tny.minute < 960):
+                continue
         p = q - 1                                # "vela 1" del EA: la última M15 cerrada (también tras una pausa)
         for d in (1, -1):
             z = zone[d]
