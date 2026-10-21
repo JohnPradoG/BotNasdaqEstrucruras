@@ -24,12 +24,13 @@ from .executor import OrderIntent
 class OpeningLoop:
     def __init__(self, cfg: dict, risk_cfg: dict, spec: SymbolSpec, executor, log_path: Path,
                  allow_orders: bool = False, strategies=("orb15", "orb5", "noise"), max_signal_age_s: int = 180,
-                 events_fn=day_events, flat_close: bool = True):
+                 events_fn=day_events, flat_close: bool = True, keep_overnight: tuple[str, ...] = ()):
         self.cfg, self.risk_cfg, self.spec, self.executor, self.log_path = cfg, risk_cfg, spec, executor, log_path
         self.allow_orders = allow_orders
         self.strategies = set(strategies)
         self.max_signal_age_s = max_signal_age_s
         self.events_fn, self.flat_close = events_fn, flat_close     # otras estrategias (p. ej. cruce de EMAs H1)
+        self.keep_overnight = tuple(keep_overnight)  # estrategias que NO se cierran a las 15:57 (p. ej. "ema2050h1")
         self.seen: set[tuple[str, str]] = set()
         self.tickets: dict[str, int] = {}          # client_id -> ticket de la posición abierta
 
@@ -100,7 +101,7 @@ class OpeningLoop:
         if self.flat_close and self.tickets:
             today = pd.Timestamp(now).tz_localize("UTC").tz_convert("America/New_York").normalize().tz_localize(None)
             if now >= flat_time_utc(today):
-                for cid in list(self.tickets):
+                for cid in [c for c in self.tickets if not c.startswith(self.keep_overnight)]:
                     rec = {"evento": "cerrar", "id": cid, **self._close(cid, "fin_del_dia")}
                     self.log(rec)
                     out.append(rec)

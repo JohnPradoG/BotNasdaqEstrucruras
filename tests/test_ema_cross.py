@@ -103,3 +103,20 @@ def test_loop_observation_and_wide_spread(tmp_path):
     broker2.spread = 9.0                                              # más de 8 puntos: no abre
     loop2.cycle(part, 20000, e.detected_time + pd.Timedelta(seconds=20))
     assert broker2.positions == {}
+
+
+def test_portfolio_flat_close_keeps_ema_overnight(tmp_path):
+    from nsmb.execution.executor import OrderIntent
+    from nsmb.strategies import portfolio as PF
+    from tests.test_opening import sessions
+    m1 = sessions(seed=5)
+    loop, broker = make_loop(tmp_path)
+    loop.strategies, loop.events_fn, loop.keep_overnight = set(PF.STRATEGIES), PF.all_events, PF.KEEP_OVERNIGHT
+    loop.flat_close = True
+    for cid, d in (("orb5-test-1", 1), (f"{C.NAME}-test", -1)):
+        res = loop.executor.submit(OrderIntent(cid, SPEC.name, d, 0.05, 20000.0 - d * 100, None, cid))
+        loop.tickets[cid] = res.ticket
+    late = m1.index[-1].normalize() + pd.Timedelta("20:30:00")          # 16:30 NY: después de las 15:57
+    loop.cycle(m1, 20000, late)
+    assert [p["comment"] for p in broker.positions.values()] == [f"{C.NAME}-test"]
+    assert list(loop.tickets) == [f"{C.NAME}-test"]

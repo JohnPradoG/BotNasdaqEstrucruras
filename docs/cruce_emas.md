@@ -61,3 +61,14 @@ John pidió meter la de H1 al bot. Entró la variante **EMA 20/50 en H1, stop 1,
   0,25 % pide unos 2.300 USD (1.600-3.100 según el día); con menos, el bot no opera ("lote_minimo_supera_riesgo").
 
 **No está activada.** Como no pasó la prueba estadística, lo recomendado es dejarla en observación unos meses.
+
+## Junto con la cartera de apertura (2026-10-21)
+
+John pidió incluir el cruce de EMAs junto a las estrategias de apertura. Arranque único: `python scripts/run_demo_bot.py`
+(orb15, orb5, noise y ema2050h1 en un solo bucle, `src/nsmb/strategies/portfolio.py`).
+- Observa por defecto; `--allow-orders` solo en cuenta DEMO.
+- Un solo número mágico (magic + 3) y un solo control de riesgo para todas: máx. 3 posiciones abiertas a la vez,
+  0,25 % por operación (≤ 1 % abierto), pérdida diaria 1 %. Si ya hay 3 abiertas, la 4.ª señal se registra y no se abre.
+- A las 15:57 NY se cierran solo las de apertura; la de EMAs puede seguir abierta de noche.
+- Registro: `logs/bot_AAAAMMDD.jsonl` (cada línea dice la estrategia). Parar: Ctrl+C o crear `logs/STOP_BOT`.
+- Prueba: `tests/test_ema_cross.py::test_portfolio_flat_close_keeps_ema_overnight`. 74 pruebas en total, todas bien.
