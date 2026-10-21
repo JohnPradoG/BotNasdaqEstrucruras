@@ -23,11 +23,13 @@ from .executor import OrderIntent
 
 class OpeningLoop:
     def __init__(self, cfg: dict, risk_cfg: dict, spec: SymbolSpec, executor, log_path: Path,
-                 allow_orders: bool = False, strategies=("orb15", "orb5", "noise"), max_signal_age_s: int = 180):
+                 allow_orders: bool = False, strategies=("orb15", "orb5", "noise"), max_signal_age_s: int = 180,
+                 events_fn=day_events, flat_close: bool = True):
         self.cfg, self.risk_cfg, self.spec, self.executor, self.log_path = cfg, risk_cfg, spec, executor, log_path
         self.allow_orders = allow_orders
         self.strategies = set(strategies)
         self.max_signal_age_s = max_signal_age_s
+        self.events_fn, self.flat_close = events_fn, flat_close     # otras estrategias (p. ej. cruce de EMAs H1)
         self.seen: set[tuple[str, str]] = set()
         self.tickets: dict[str, int] = {}          # client_id -> ticket de la posición abierta
 
@@ -41,8 +43,13 @@ class OpeningLoop:
         if tick is None:
             return {"orden": "sin_precio"}
         spread = tick["ask"] - tick["bid"]
+        if e.max_spread is not None and spread > e.max_spread:
+            return {"orden": "spread_alto", "spread": round(spread, 2)}
         ref = tick["ask"] if e.direction > 0 else tick["bid"]
-        stop = e.stop if e.direction > 0 else e.stop + spread          # en ventas el stop se activa con el ASK
+        if e.stop is None:                                              # stop por distancia desde la entrada
+            stop = ref - e.direction * e.stop_dist
+        else:
+            stop = e.stop if e.direction > 0 else e.stop + spread      # en ventas el stop se activa con el ASK
         risk_px = (ref - stop) * e.direction
         if risk_px <= 0:
             return {"orden": "stop_ya_superado"}
@@ -69,13 +76,13 @@ class OpeningLoop:
         age = (now - (m1.index[-1] + pd.Timedelta(minutes=1))).total_seconds()
         fresh = age <= self.cfg["execution"]["max_data_age_s"]
         out = []
-        for e in day_events(m1, now):
+        for e in self.events_fn(m1, now):
             if e.strategy not in self.strategies or (e.client_id, e.kind) in self.seen:
                 continue
             self.seen.add((e.client_id, e.kind))
             late = (now - e.detected_time).total_seconds() > self.max_signal_age_s
             rec = {"evento": e.kind, "estrategia": e.strategy, "id": e.client_id, "dir": e.direction,
-                   "detectada": e.detected_time, "stop": e.stop, "motivo": e.reason, "datos_frescos": fresh,
+                   "detectada": e.detected_time, "stop": e.stop, "stop_dist": e.stop_dist, "motivo": e.reason, "datos_frescos": fresh,
                    "tarde": late}
             if not self.allow_orders:
                 rec["decision"] = f"observacion: habría {'abierto' if e.kind == 'abrir' else 'cerrado'}"
@@ -89,8 +96,8 @@ class OpeningLoop:
                 self.tickets.pop(e.client_id, None)
             self.log(rec)
             out.append(rec)
-        # salida forzada de las 15:57 NY
-        if self.tickets:
+        # salida forzada de las 15:57 NY (solo estrategias del día)
+        if self.flat_close and self.tickets:
             today = pd.Timestamp(now).tz_localize("UTC").tz_convert("America/New_York").normalize().tz_localize(None)
             if now >= flat_time_utc(today):
                 for cid in list(self.tickets):
@@ -99,14 +106,18 @@ class OpeningLoop:
                     out.append(rec)
         return out
 
+    def _sync(self) -> None:
+        rep = self.executor.reconcile(self.spec.name, set(self.tickets.values()))
+        closed = set(rep.get("cerradas", []))
+        self.tickets = {k: v for k, v in self.tickets.items() if v not in closed}
+
     def run(self, get_m1, get_equity, interval_s: int = 20, stop_file: Path | None = None, once: bool = False):
         while True:
             try:
+                self._sync()                          # quita las que ya cerró el bróker (stop u objetivo)
                 m1 = get_m1()
                 recs = self.cycle(m1, get_equity(), datetime.now(timezone.utc))
-                rep = self.executor.reconcile(self.spec.name, set(self.tickets.values()))
-                closed = set(rep.get("cerradas", []))
-                self.tickets = {k: v for k, v in self.tickets.items() if v not in closed}
+                self._sync()
                 self.log({"ciclo": "ok", "ultima_vela": m1.index[-1], "eventos": len(recs), "abiertas": self.tickets})
             except Exception as e:  # noqa: BLE001  (desconexión, datos...) => se registra y se reintenta
                 self.log({"ciclo": "error", "error": repr(e)})

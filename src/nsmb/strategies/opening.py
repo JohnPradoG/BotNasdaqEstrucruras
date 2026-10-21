@@ -42,6 +42,8 @@ class OpeningEvent:
     stop: float | None = None     # nivel de stop sobre el BID (en ventas hay que sumar el spread)
     target_r: float | None = None
     reason: str = ""
+    stop_dist: float | None = None    # si se da (y stop es None): stop a esta distancia del precio real de entrada
+    max_spread: float | None = None   # no abrir si el spread (en precio) lo supera
 
 
 def _ny(m1: pd.DataFrame) -> pd.DataFrame:

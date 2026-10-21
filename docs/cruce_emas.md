@@ -42,3 +42,22 @@ H4 y D1 dan muy pocas operaciones y no ganan.
 El cruce de EMAs no tiene ventaja clara después de costes en ninguna temporalidad. H1 es la menos mala
 (+0,03 a +0,04 R en 2025-26, casi cero). **No se implementa en el bot con dinero.** Si John quiere, la variante
 H1 EMA 20/50 con objetivo 2 R puede observarse en demo como un módulo más, sin órdenes.
+
+## En el bot (2026-10-21, pedido por John)
+
+John pidió meter la de H1 al bot. Entró la variante **EMA 20/50 en H1, stop 1,5 ATR, objetivo 2 R, compras y ventas**:
+
+- Reglas: `src/nsmb/strategies/ema_cross.py`. Mismo bucle que la cartera de apertura (`execution/opening_loop.py`),
+  pero sin cierre de las 15:57 (puede quedarse noches) y con el stop medido desde el precio real de entrada.
+  En el cruce contrario cierra y abre la contraria. No abre con spread > 8 puntos.
+- Paridad: con las últimas 100.000 velas M1 (como en vivo), el módulo da las **108 de 108** entradas del backtest de
+  2025, con la misma distancia de stop (`scripts/check_ema_parity.py`).
+- Pruebas: `tests/test_ema_cross.py` (cruces, sin mirar el futuro, vela H1 abierta no se usa, giro en el cruce,
+  stop y objetivo, spread alto, modo observación). 73 pruebas en total, todas bien.
+- Arranque: `python scripts/run_demo_ema.py` (observa, no envía órdenes). `--allow-orders` solo opera en cuenta DEMO
+  (si no es demo, el bot no arranca). Número mágico propio (magic + 2), registro `logs/ema_h1_AAAAMMDD.jsonl`,
+  para detenerlo: Ctrl+C o crear `logs/STOP_EMA`. Puede ir a la vez que la cartera de apertura (proceso aparte).
+- Riesgo: 0,25 % por operación. Con lote mínimo 0,05 y stop medio de unos 1,5 ATR H1 (~60-100 puntos), arriesgar
+  0,25 % pide unos 1.200-2.000 USD; con menos, el bot no opera ("lote_minimo_supera_riesgo").
+
+**No está activada.** Como no pasó la prueba estadística, lo recomendado es dejarla en observación unos meses.
