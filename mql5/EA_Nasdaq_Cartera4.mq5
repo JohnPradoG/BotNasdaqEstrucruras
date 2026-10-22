@@ -28,12 +28,13 @@
 //| cuenta: InpMaxDailyLossPct. Sin martingala ni promediar.         |
 //| Solo cuentas DEMO por defecto (InpOnlyDemo).                     |
 //| Hora del servidor: Exness = UTC (InpServerUTCOffset = 0).        |
+//| Telegram opcional: pegar token y chat ID en los parámetros.      |
 //|                                                                  |
 //| AVISO: ninguna de las 4 pasó la prueba estadística del proyecto. |
 //| Probar en el Probador y en demo antes de pensar en dinero real.  |
 //+------------------------------------------------------------------+
 #property copyright "nasdaq_structure_memory_bot"
-#property version   "1.00"
+#property version   "1.10"
 
 #include <Trade\Trade.mqh>
 
@@ -50,6 +51,8 @@ input int    InpServerUTCOffset  = 0;        // Horas del servidor respecto a UT
 input bool   InpOnlyDemo         = true;     // Solo cuentas demo
 input long   InpMagicBase        = 20261100; // Mágico base (+1 orb15, +2 orb5, +3 noise, +4 ema)
 input int    InpSlippagePoints   = 30;       // Desviación máxima en puntos
+input string InpTelegramToken    = "";       // Token del bot de Telegram (pegarlo aquí, nunca en el código)
+input string InpTelegramChatID   = "";       // Chat ID de Telegram
 
 // constantes de las reglas (congeladas)
 #define OPEN_MIN    570      // 9:30
@@ -166,7 +169,12 @@ bool DailyLossHit()
 bool OpenTrade(int s, int dir, double stopLevel, double stopDist, double targetR, double maxSpread, string why)
 {
    int d0; if(FindPos(s, d0) != 0) return false;   // una operación por estrategia
-   if(DailyLossHit()) { PrintFormat("[%s] límite de pérdida diaria: no se abre", SName(s)); return false; }
+   if(DailyLossHit())
+   {
+      PrintFormat("[%s] límite de pérdida diaria: no se abre", SName(s));
+      Tg(StringFormat("%s: señal ignorada, límite de pérdida diaria del %.1f %% alcanzado", SName(s), InpMaxDailyLossPct));
+      return false;
+   }
    MqlTick tk; if(!SymbolInfoTick(_Symbol, tk)) return false;
    double spread = tk.ask - tk.bid;
    if(spread > maxSpread) { PrintFormat("[%s] spread alto %.2f: no se abre", SName(s), spread); return false; }
@@ -189,7 +197,44 @@ bool OpenTrade(int s, int dir, double stopLevel, double stopDist, double targetR
    ok = ok && (rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_PLACED);
    PrintFormat("[%s] %s %s %.2f lotes, riesgo %.2f, %s: %s (%d)", SName(s), why, dir > 0 ? "compra" : "venta", lot, risk,
                targetR > 0 ? StringFormat("objetivo %.0f R", targetR) : "sin objetivo", ok ? "ok" : "rechazada", rc);
+   if(ok) Tg(StringFormat("%s: ABRE %s %.2f lotes a %.2f | stop %.2f | %s | %s", SName(s), dir > 0 ? "COMPRA" : "VENTA",
+                          lot, trade.ResultPrice(), sl, tp > 0 ? StringFormat("objetivo %.2f", tp) : "sin objetivo", why));
+   else Tg(StringFormat("%s: orden RECHAZADA (%d %s)", SName(s), rc, trade.ResultRetcodeDescription()));
    return ok;
+}
+
+//+------------------------------------------------------------------+
+//| Telegram (opcional): avisos de aperturas, cierres y bloqueos.    |
+//| Requiere añadir https://api.telegram.org en Herramientas >       |
+//| Opciones > Asesores Expertos > Permitir WebRequest.              |
+//| El token va en los parámetros del EA, no en el código.           |
+//+------------------------------------------------------------------+
+string UrlEncode(string text)
+{
+   uchar src[]; StringToCharArray(text, src, 0, WHOLE_ARRAY, CP_UTF8);
+   string out = "";
+   for(int i = 0; i < ArraySize(src) - 1; i++)
+   {
+      uchar ch = src[i];
+      if((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '-' || ch == '_' || ch == '.' || ch == '~')
+         out += CharToString(ch);
+      else
+         out += StringFormat("%%%02X", ch);
+   }
+   return out;
+}
+
+void Tg(string text)
+{
+   if(InpTelegramToken == "" || InpTelegramChatID == "" || MQLInfoInteger(MQL_TESTER)) return;
+   string url = "https://api.telegram.org/bot" + InpTelegramToken + "/sendMessage";
+   string body = "chat_id=" + InpTelegramChatID + "&text=" + UrlEncode("[NSMB " + _Symbol + "] " + text);
+   char post[], result[]; string rh;
+   StringToCharArray(body, post, 0, StringLen(body), CP_UTF8);
+   ResetLastError();
+   int res = WebRequest("POST", url, "Content-Type: application/x-www-form-urlencoded\r\n", 5000, post, result, rh);
+   if(res != 200)
+      PrintFormat("Telegram no enviado (código %d, error %d). ¿Está https://api.telegram.org en Permitir WebRequest?", res, GetLastError());
 }
 
 //+------------------------------------------------------------------+
@@ -438,6 +483,9 @@ int OnInit()
    ResetDay(NYDay(NYOf(TimeCurrent())));
    EventSetTimer(5);
    Print("EA_Nasdaq_Cartera4 listo: orb15, orb5, noise, ema2050h1. Una operación por estrategia.");
+   Tg(StringFormat("EA_Nasdaq_Cartera4 en marcha en %s (%s). Equity %.2f. Riesgo %.2f %% por operación.",
+                   AccountInfoString(ACCOUNT_SERVER), AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO ? "DEMO" : "REAL",
+                   AccountInfoDouble(ACCOUNT_EQUITY), InpRiskPct));
    return INIT_SUCCEEDED;
 }
 
@@ -458,6 +506,21 @@ void Process()
    if(t.day_of_week >= 1 && t.day_of_week <= 5 && !IsHoliday(d) && (InpUseORB15 || InpUseORB5 || InpUseNoise))
       RunOpening(ny);
    if(InpUseEMA) RunEMA();
+}
+
+// Aviso de cada cierre (stop, objetivo, regla o fin del día) de las posiciones del EA
+void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &req, const MqlTradeResult &res)
+{
+   if(trans.type != TRADE_TRANSACTION_DEAL_ADD || !HistoryDealSelect(trans.deal)) return;
+   long mg = HistoryDealGetInteger(trans.deal, DEAL_MAGIC);
+   if(mg <= InpMagicBase || mg > InpMagicBase + S_EMA) return;
+   if(HistoryDealGetInteger(trans.deal, DEAL_ENTRY) != DEAL_ENTRY_OUT) return;
+   double pnl = HistoryDealGetDouble(trans.deal, DEAL_PROFIT) + HistoryDealGetDouble(trans.deal, DEAL_SWAP)
+              + HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
+   long reason = HistoryDealGetInteger(trans.deal, DEAL_REASON);
+   string why = reason == DEAL_REASON_SL ? "stop" : reason == DEAL_REASON_TP ? "objetivo" : "regla del EA";
+   Tg(StringFormat("%s: CIERRA a %.2f por %s | resultado %.2f %s", SName((int)(mg - InpMagicBase)),
+                   HistoryDealGetDouble(trans.deal, DEAL_PRICE), why, pnl, AccountInfoString(ACCOUNT_CURRENCY)));
 }
 
 void OnTick()  { Process(); }
