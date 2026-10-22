@@ -9,3 +9,5 @@ tzdata
 pytest>=8
 # Opcional (Windows + terminal MT5 instalado):
 MetaTrader5>=5.0.45
+scikit-learn>=1.4
+hmmlearn>=0.3

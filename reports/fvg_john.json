@@ -1,0 +1,108 @@
+{
+ "fecha": "2026-10-21T12:35:21+00:00",
+ "parametros": {
+  "min_gap_atr": 0.2,
+  "search_bars": 100,
+  "ema": 80,
+  "timeout": 100,
+  "sl_buf_atr": 0.6,
+  "rr": 2.5,
+  "max_losses": 5,
+  "pause_days": 2,
+  "max_spread_pts": 8.0
+ },
+ "periodos": {
+  "dev": {
+   "n": 471,
+   "r": -0.1023,
+   "t": -1.48,
+   "bruto": -0.0352,
+   "aciertos": 0.27
+  },
+  "val": {
+   "n": 232,
+   "r": -0.0383,
+   "t": -0.37,
+   "bruto": 0.0307,
+   "aciertos": 0.289
+  },
+  "hol": {
+   "n": 390,
+   "r": 0.1216,
+   "t": 1.36,
+   "bruto": 0.1687,
+   "aciertos": 0.333
+  }
+ },
+ "fuera_de_su_optimizacion_2021_2024-08": {
+  "n": 617,
+  "dias": 409,
+  "r": -0.0774,
+  "t": -1.25,
+  "aciertos": 0.277
+ },
+ "dentro_de_su_optimizacion_2024-08_2026-08": {
+  "n": 438,
+  "dias": 299,
+  "r": 0.0915,
+  "t": 1.12,
+  "aciertos": 0.324
+ },
+ "despues_2026-08": {
+  "n": 38,
+  "dias": 23,
+  "r": -0.0518,
+  "t": -0.18,
+  "aciertos": 0.289
+ },
+ "por_año": {
+  "2021": {
+   "n": 23,
+   "r": -0.153,
+   "suma_R": -3.5
+  },
+  "2022": {
+   "n": 215,
+   "r": -0.014,
+   "suma_R": -3.0
+  },
+  "2023": {
+   "n": 233,
+   "r": -0.179,
+   "suma_R": -41.7
+  },
+  "2024": {
+   "n": 232,
+   "r": -0.038,
+   "suma_R": -8.9
+  },
+  "2025": {
+   "n": 187,
+   "r": 0.119,
+   "suma_R": 22.3
+  },
+  "2026": {
+   "n": 203,
+   "r": 0.124,
+   "suma_R": 25.1
+  }
+ },
+ "compras_ventas": {
+  "venta": {
+   "n": 464,
+   "r": 0.074
+  },
+  "compra": {
+   "n": 629,
+   "r": -0.07
+  }
+ },
+ "salidas": {
+  "stop": 769,
+  "objetivo": 322,
+  "tiempo": 2
+ },
+ "horas_medias": 24.4,
+ "swap_medio_R": 0.032,
+ "riesgo_pts_mediana": 88.0
+}
